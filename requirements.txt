@@ -1,6 +1,5 @@
 streamlit
 matplotlib
-Image
-ImageDraw
+PIL (Image, ImageDraw)
 datetime
 
