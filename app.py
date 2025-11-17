@@ -1,452 +1,201 @@
 import streamlit as st
-import datetime
-import json
-import os
-import pandas as pd
-import altair as alt
+from PIL import Image, ImageDraw
+from datetime import datetime
 
-import streamlit as st
+# Page config
+st.set_page_config(page_title="WaterBuddy+", page_icon="💧", layout="centered")
 
-css = r"""
-@custom-variant dark (&:is(.dark *));
-
-:root {
-  --font-size: 16px;
-  --background: #ffffff;
-  --foreground: oklch(0.145 0 0);
-  --card: #ffffff;
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #22c55e;
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0.0058 264.53);
-  --secondary-foreground: #030213;
-  --muted: #ececf0;
-  --muted-foreground: #717182;
-  --accent: #e9ebef;
-  --accent-foreground: #030213;
-  --destructive: #d4183d;
-  --destructive-foreground: #ffffff;
-  --border: rgba(0, 0, 0, 0.1);
-  --input: transparent;
-  --input-background: #f3f3f5;
-  --switch-background: #cbced4;
-  --font-weight-medium: 500;
-  --font-weight-normal: 400;
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #030213;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-input-background: var(--input-background);
-  --color-switch-background: var(--switch-background);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
-@layer base {
-  :where(:not(:has([class*=' text-']), :not(:has([class^='text-'])))) {
-    h1 {
-      font-size: var(--text-2xl);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h2 {
-      font-size: var(--text-xl);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h3 {
-      font-size: var(--text-lg);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h4 {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    p {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-normal);
-      line-height: 1.5;
-    }
-
-    label {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    button {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    input {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-normal);
-      line-height: 1.5;
-    }
-  }
-}
-
-html {
-  font-size: var(--font-size);
-}
-"""
-
+# Design system CSS
 st.markdown("""
-    <style>
-
-    /* Global page width */
-    .main {
-        max-width: 420px;      /* iPhone width */
-        margin: 0 auto;
-        padding-top: 20px;
-    }
-
-    /* Uniform card container */
-    .water-card {
-        background-color: #ffffff;
-        padding: 24px;
-        border-radius: 22px;
-        box-shadow: 0px 4px 22px rgba(0,0,0,0.08);
-        margin-bottom: 30px;
-    }
-
-    /* Page title style */
-    h1 {
-        font-size: 28px !important;
-        text-align: center;
-        margin-top: -10px;
-        margin-bottom: 25px;
-        font-weight: 700;
-    }
-
-    /* Subtitles */
-    h2, h3 {
-        text-align: center;
-        margin-bottom: 10px;
-    }
-
-    /* Inputs consistent width */
-    .stNumberInput, .stSelectbox {
-        width: 100% !important;
-    }
-
-    /* Buttons full width */
-    button[kind="secondary"], button[kind="primary"] {
-        width: 100% !important;
-        border-radius: 12px;
-        height: 48px;
-        font-size: 18px;
-    }
-
-    /* Progress bar height */
-    .stProgress > div > div {
-        height: 16px !important;
-        border-radius: 10px !important;
-    }
-
-    /* Metrics sizing */
-    .stMetric {
-        text-align: center !important;
-        font-size: 20px !important;
-    }
-
-    /* Remove Streamlit padding */
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-    }
-
-    </style>
+<style>
+:root {
+  --primary-blue: #3B82F6;
+  --primary-cyan:  #06B6D4;
+  --success-green: #22C55E;
+  --success-green-2: #10B981;
+  --warning-orange: #F97316;
+  --warning-orange-2: #FB923C;
+  --error-red: #EF4444;
+  --accent-purple: #A855F7;
+  --accent-purple-2: #8B5CF6;
+}
+.huge-number { font-size: 42px; font-weight: 700; color: var(--primary-blue); }
+.header-lg   { font-size: 28px; font-weight: 600; color: #0F172A; }
+.header-md   { font-size: 22px; font-weight: 600; color: #0F172A; }
+.caption     { font-size: 12px; color: #64748B; }
+.card { padding: 1rem; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); background: #FFFFFF; }
+[data-testid="stProgress"] div div { background: linear-gradient(90deg, var(--primary-blue), var(--primary-cyan)); }
+</style>
 """, unsafe_allow_html=True)
 
-# --------------------------
-# Persistent Storage
-# --------------------------
-DATA_FILE = "water_state.json"
-
-def load():
-    if os.path.exists(DATA_FILE):
-        return json.load(open(DATA_FILE, "r"))
-    return {
-        "page": 1,
-        "age": None,
-        "height": None,
-        "weight": None,
-        "bmi": None,
-        "condition": None,
-        "goal": None,
-        "intake": {},
-    }
-
-def save(state):
-    json.dump(state, open(DATA_FILE, "w"), indent=4)
-
-state = load()
-
-# --------------------------
-# Helpers
-# --------------------------
-def calc_bmi(h, w):
-    return round(w / ((h / 100) ** 2), 2)
-
-def base_water_requirement(bmi):
-    """Default requirement using BMI."""
+# Hydration logic
+def compute_bmi(height_cm, weight_kg):
+    if height_cm <= 0 or weight_kg <= 0:
+        return 0.0, "Invalid", 0
+    h_m = height_cm / 100
+    bmi = weight_kg / (h_m ** 2)
     if bmi < 18.5:
-        return 2500
-    elif bmi < 25:
-        return 3000
+        return bmi, "Underweight", -200
+    elif bmi <= 25:
+        return bmi, "Normal", 0
     else:
-        return 3500
+        return bmi, "Overweight", 200
 
-def apply_condition_adjustment(ml, condition):
-    adj = {
-        "Normal / Healthy": 0,
-        "Athletic": +800,
-        "Summer / Hot Climate": +600,
-        "Pregnancy / Nursing": +700,
-        "Heart / Kidney Issues": -500,
-        "Diabetic": +300,
+def age_base_goal(age):
+    if 4 <= age <= 8: return 1200
+    elif 9 <= age <= 13: return 1700
+    elif 14 <= age <= 64: return 2000
+    else: return 1700
+
+def condition_adjustment(condition):
+    return {
+        "None": 0,
+        "Athlete": 300,
+        "Hot climate": 200,
+        "Pregnant": 250,
+        "Diabetic": 150,
+        "Kidney/Heart": -300,
+    }.get(condition, 0)
+
+def personalized_goal(age, height, weight, condition):
+    base = age_base_goal(age)
+    bmi_val, bmi_cat, bmi_adj = compute_bmi(height, weight)
+    cond_adj = condition_adjustment(condition)
+    goal = max(500, base + bmi_adj + cond_adj)
+    return {
+        "goal": goal,
+        "base": base,
+        "bmi": round(bmi_val, 1),
+        "bmi_cat": bmi_cat,
+        "bmi_adj": bmi_adj,
+        "cond_adj": cond_adj,
     }
-    return max(1200, ml + adj.get(condition, 0))
 
-def today_key():
-    return str(datetime.date.today())
+def mascot(progress):
+    if progress >= 100: return "🎉", "Amazing! You've reached your goal!"
+    elif progress >= 75: return "💪", "Almost there! Keep it up!"
+    elif progress >= 50: return "👍", "Great progress! You're halfway!"
+    elif progress >= 25: return "🌊", "Good start! Keep drinking!"
+    else: return "💧", "Time to hydrate!"
 
-def record_intake(amount):
-    day = today_key()
-    if day not in state["intake"]:
-        state["intake"][day] = 0
-    state["intake"][day] += amount
-    save(state)
+def draw_bottle(progress, width=220, height=420):
+    img = Image.new("RGBA", (width, height), (255, 255, 255, 0))
+    draw = ImageDraw.Draw(img)
+    margin, neck_height = 20, 50
+    top, bottom = margin, height - margin
+    left, right = margin, width - margin
+    neck_left, neck_right = width//2 - 35, width//2 + 35
+    draw.rounded_rectangle([(neck_left, top), (neck_right, top + neck_height)], radius=15, outline="#0ea5e9", width=3, fill=(255,255,255,255))
+    body_top = top + neck_height
+    draw.rounded_rectangle([(left, body_top), (right, bottom)], radius=30, outline="#0ea5e9", width=3, fill=(255,255,255,255))
+    fill_height = int((progress / 100) * (bottom - body_top))
+    fill_top = bottom - fill_height
+    draw.rectangle([(left+3, fill_top), (right-3, bottom-3)], fill=(59,130,246,200))
+    draw.line([(left+10, fill_top+12), (right-10, fill_top+12)], fill="#06b6d4", width=2)
+    return img
 
-# --------------------------
-# PAGE 1 — Welcome
-# --------------------------
-if state["page"] == 1:
-    st.title("💧 Welcome to Water Buddy")
-    st.subheader("Track your hydration, personalised using BMI + health factors.")
+# State
+if "profile" not in st.session_state:
+    st.session_state.profile = {"age": 25, "height": 170.0, "weight": 65.0, "condition": "None"}
+if "intake" not in st.session_state: st.session_state.intake = 0
+if "tip_index" not in st.session_state: st.session_state.tip_index = 0
+if "day" not in st.session_state: st.session_state.day = datetime.now().date()
+if st.session_state.day != datetime.now().date():
+    st.session_state.intake = 0
+    st.session_state.day = datetime.now().date()
 
-    st.write("Enter your **age**, then click next →")
+TIPS = [
+    "Sip water regularly instead of chugging.",
+    "Keep a bottle within reach to build the habit.",
+    "Add slices of lemon or cucumber for flavour.",
+    "Hydrate before and after exercise.",
+    "Coffee/tea count, but plain water is best.",
+    "Set mini-goals every hour to stay on track.",
+]
 
-    age = st.number_input("Age", min_value=5, max_value=100, value=state.get("age") or 18)
+# Header
+st.markdown("""
+<div class="card" style="background:linear-gradient(135deg,#3B82F6,#06B6D4);color:white">
+  <div class="header-lg">💧 WaterBuddy+</div>
+  <div class="caption" style="color:#E0F2FE">Personalized Hydration with Age + BMI + Health Conditions</div>
+</div>
+""", unsafe_allow_html=True)
 
-    if st.button("Next"):
-        state["age"] = age
-        state["page"] = 2
-        save(state)
-        st.rerun()
+# Sidebar
+st.sidebar.title("Profile")
+age = st.sidebar.number_input("Age", 4, 120, st.session_state.profile["age"])
+height = st.sidebar.number_input("Height (cm)", 50.0, 240.0, st.session_state.profile["height"])
+weight = st.sidebar.number_input("Weight (kg)", 10.0, 250.0, st.session_state.profile["weight"])
+condition = st.sidebar.selectbox("Health condition", ["None", "Athlete", "Hot climate", "Pregnant", "Diabetic", "Kidney/Heart"], index=["None", "Athlete", "Hot climate", "Pregnant", "Diabetic", "Kidney/Heart"].index(st.session_state.profile["condition"]))
+st.session_state.profile.update({"age": age, "height": height, "weight": weight, "condition": condition})
 
-# --------------------------
-# PAGE 2 — Enter Height & Weight
-# --------------------------
-elif state["page"] == 2:
-    st.title("📏 Body Metrics")
+# Goal calculation
+calc = personalized_goal(age, height, weight, condition)
+progress_pct = int(min(100, (st.session_state.intake / calc['goal']) * 100)) if calc['goal'] else 0
 
-    height = st.number_input("Height (cm)", value=state.get("height") or 170)
-    weight = st.number_input("Weight (kg)", value=state.get("weight") or 65)
+# Layout
+col1, col2 = st.columns([1,1])
+with col1:
+    st.markdown("<div class='header-md'>🎯 Personalized Daily Goal</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='huge-number'>{calc['goal']} ml</div>", unsafe_allow_html=True)
+    st.progress(min(1.0, st.session_state.intake / calc['goal']))
+    st.write("**Breakdown**")
+    st.write(f"Base (age): **{calc['base']} ml**")
+    st.write(f"BMI: {calc['bmi']} ({calc['bmi_cat']}) ➜ **{calc['bmi_adj']} ml**")
+    st.write(f"Condition ({condition}): **{calc['cond_adj']} ml**")
 
-    if st.button("Calculate BMI"):
-        bmi = calc_bmi(height, weight)
-        state["height"] = height
-        state["weight"] = weight
-        state["bmi"] = bmi
-        state["page"] = 3
-        save(state)
-        st.rerun()
+with col2:
+    st.image(draw_bottle(progress_pct), caption=f"Progress: {progress_pct}%", use_column_width=True)
 
-# --------------------------
-# PAGE 3 — Health Condition
-# --------------------------
-elif state["page"] == 3:
-    st.title("❤️ Health Profile")
+# Metrics
+remaining = max(0, calc['goal'] - st.session_state.intake)
+m1, m2, m3 = st.columns(3)
+m1.metric("Intake", f"{st.session_state.intake} ml")
+m2.metric("Remaining", f"{remaining} ml")
+m3.metric("Progress", f"{progress_pct}%")
 
-    conditions = [
-        "Normal / Healthy",
-        "Athletic",
-        "Summer / Hot Climate",
-        "Pregnancy / Nursing",
-        "Heart / Kidney Issues",
-        "Diabetic"
-    ]
+# Intake buttons
+a1, a2, a3 = st.columns([1,1,2])
+if a1.button("➕ +250 ml"): st.session_state.intake = min(calc['goal'], st.session_state.intake + 250)
+if a2.button("➕ +500 ml"): st.session_state.intake = min(calc['goal'], st.session_state.intake + 500)
+with a3:
+    custom = st.number_input("Custom amount (ml)", 0, 5000, 0, step=50)
+    if st.button("Add custom") and custom > 0:
+        st.session_state.intake = min(calc['goal'], st.session_state.intake + int(custom))
 
-    condition = st.selectbox("Select Health Condition:", conditions)
+# Mascot
+emoji, msg = mascot(progress_pct)
+st.success(f"{emoji} {msg}")
+if progress_pct >= 100: st.balloons()
 
-    if st.button("Next →"):
-        # Compute water goal
-        base = base_water_requirement(state["bmi"])
-        final = apply_condition_adjustment(base, condition)
+# Tips
+with st.expander("💡 Daily hydration tip"):
+    tip = TIPS[st.session_state.tip_index % len(TIPS)]
+    st.info(tip)
+    c1, c2 = st.columns(2)
+    if c1.button("Next tip"): st.session_state.tip_index += 1
+    if c2.button("Previous tip"): st.session_state.tip_index = (st.session_state.tip_index - 1) % len(TIPS)
 
-        state["condition"] = condition
-        state["goal"] = final
-        state["page"] = 4
-        save(state)
-        st.rerun()
+# Reset
+st.markdown("---")
+r1, r2 = st.columns([2,2])
+with r1:
+    st.markdown("<div class='header-md'>🔄 New Day / Reset</div>", unsafe_allow_html=True)
+    st.caption("Resets intake to 0. Your profile stays unchanged.")
+with r2:
+    confirm = st.checkbox("Confirm reset")
+    if st.button("Reset now"):
+        if confirm:
+            st.session_state.intake = 0
+            st.session_state.tip_index = 0
+            st.toast("✅ Reset complete. New day—time to hydrate!", icon="💧")
+        else:
+            st.warning("Please tick 'Confirm reset' before resetting.")
 
-# --------------------------
-# PAGE 4 — Water Tracker
-# --------------------------
-elif state["page"] == 4:
-    st.title("🚰 Daily Water Tracker")
-
-    goal = state["goal"]
-    today = today_key()
-    current = state["intake"].get(today, 0)
-
-    st.metric("Daily Goal", f"{goal} ml")
-    st.metric("Consumed", f"{current} ml")
-    st.metric("Remaining", f"{max(goal - current, 0)} ml")
-
-    st.progress(min(current / goal, 1.0))
-
-    add = st.number_input("Add Water (ml)", value=250, step=50)
-
-    if st.button("Add"):
-        record_intake(add)
-        st.rerun()
-
-    if current >= goal:
-        st.success("🎉 GOAL REACHED!")
-        st.balloons()
-
-    if st.button("View Weekly History →"):
-        state["page"] = 5
-        save(state)
-        st.rerun()
-
-    if st.button("Reset App"):
-        os.remove(DATA_FILE)
-        st.rerun()
-
-# --------------------------
-# PAGE 5 — Weekly History
-# --------------------------
-elif state["page"] == 5:
-    st.title("📊 Weekly History")
-
-    today = datetime.date.today()
-    rows = []
-
-    for i in range(6, -1, -1):
-        d = today - datetime.timedelta(days=i)
-        s = str(d)
-        rows.append({"date": s, "water": state["intake"].get(s, 0)})
-
-    df = pd.DataFrame(rows)
-
-    chart = (
-        alt.Chart(df)
-        .mark_bar()
-        .encode(
-            x="date:T",
-            y="water:Q"
-        )
-    )
-    st.altair_chart(chart, use_container_width=True)
-
-    if st.button("Back to Tracker"):
-        state["page"] = 4
-        save(state)
-        st.rerun()
+# Disclaimer
+st.markdown("""
+<div class="card" style="border-left: 6px solid #EF4444">
+  <div class="header-md">⚕️ Medical disclaimer</div>
+  <div class="body">If you have kidney or heart conditions—or any medical concerns—consult a qualified healthcare professional for individualized hydration guidance. This app provides general recommendations only.</div>
+</div>
+""", unsafe_allow_html=True)
