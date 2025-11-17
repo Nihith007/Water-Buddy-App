@@ -1,7 +1,6 @@
 streamlit
 matplotlib
-pillow
-numpy
-pandas
-altair
+Image
+ImageDraw
+datetime
 
