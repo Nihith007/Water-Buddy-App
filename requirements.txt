@@ -1,191 +1,125 @@
-WaterBuddy+ — Library Routines & Constants (for yes.txt)
-========================================================
-Purpose: Plain-text index of all app-level routines, constants, and data used by the
-         Streamlit WaterBuddy+ app (design, dimensions, data, and logic).
-Copy-paste this file into your GitHub repo as yes.txt for documentation.
+WaterBuddy+ — Library Routines, Constants, Data, and State
+==========================================================
 
---------------------------------------------------------
-Imports (libraries used)
---------------------------------------------------------
-import streamlit as st
-from datetime import datetime
-from PIL import Image, ImageDraw
+PURPOSE
+-------
+This document lists all functions (library routines), constants, data arrays,
+and session state keys used by the WaterBuddy+ Streamlit app.
 
+LIBRARIES USED
+--------------
+- streamlit
+- PIL.Image
+- PIL.ImageDraw
+- datetime (date handling)
 
---------------------------------------------------------
-Design Constants (palette + dimensions)
---------------------------------------------------------
-PALETTE = {
-  "blue":   "#3B82F6",
-  "cyan":   "#06B6D4",
-  "teal":   "#14B8A6",
-  "green":  "#22C55E",
-  "red":    "#EF4444",
-  "orange": "#F97316",
-  "indigo": "#6366F1",
-  "purple": "#A855F7",
-  "gray":   "#64748B",
-  "text":   "#0F172A",
-  "muted":  "#94A3B8",
-  "border": "#E5E7EB",
-}
+CONSTANTS (DESIGN & DIMENSIONS)
+-------------------------------
+PALETTE keys:
+  blue, cyan, teal, green, red, orange, indigo, purple, gray, text, muted, border
 
-DIMENSIONS = {
-  "kpi_font":        16,
-  "header_font":     28,
-  "subheader_font":  22,
-  "huge_font":       42,
-  "card_radius":     18,
-  "button_height":   54,
-  "input_height":    48,
-  "bottle_width":   220,
-  "bottle_height":  360,
-}
+DIMENSIONS keys:
+  kpi_font, header_font, subheader_font, huge_font, card_radius,
+  button_height, input_height, bottle_width, bottle_height
 
+APP DATA ARRAYS
+---------------
+TIPS (list of hydration tips)
+CONDITION_OPTIONS (list of health condition options shown in UI)
 
---------------------------------------------------------
-App Data (tips and selectable options)
---------------------------------------------------------
-TIPS = [
-  "Staying hydrated keeps your skin healthy and glowing!",
-  "Sip water regularly—small sips beat big gulps.",
-  "Carry a bottle so water is always within reach.",
-  "Hydrate before and after exercise.",
-  "Add lemon or cucumber for a tasty boost.",
-]
+CORE HYDRATION ROUTINES (FUNCTIONS)
+-----------------------------------
+1) compute_bmi
+   - Input: height_cm (float), weight_kg (float)
+   - Output: bmi_value (float), bmi_category (str), bmi_adjustment_ml (int)
+   - Logic:
+       Underweight  -> -200 ml
+       Normal       ->   0 ml
+       Overweight   -> +200 ml
 
-CONDITION_OPTIONS = [
-  "Normal / Healthy",
-  "Athlete / High Activity",
-  "Hot Climate",
-  "Pregnant",
-  "Diabetic",
-  "Kidney / Heart",
-]
+2) age_base_goal
+   - Input: age (int)
+   - Output: base_goal_ml (int)
+   - Mapping:
+       4–8   -> 1200 ml
+       9–13  -> 1700 ml
+       14–64 -> 2000 ml
+       65+   -> 1700 ml
 
+3) condition_adjustment
+   - Input: condition (str; one of CONDITION_OPTIONS)
+   - Output: adjustment_ml (int)
+   - Mapping:
+       Normal / Healthy            ->    0
+       Athlete / High Activity     -> +300
+       Hot Climate                 -> +200
+       Pregnant                    -> +250
+       Diabetic                    -> +150
+       Kidney / Heart              -> -300
 
---------------------------------------------------------
-Hydration Math Routines (Age + BMI + Condition)
---------------------------------------------------------
-def compute_bmi(height_cm: float, weight_kg: float) -> tuple[float, str, int]:
-    """
-    Calculates BMI and returns:
-      (bmi_value, bmi_category, bmi_adjustment_ml)
-    Adjustment mapping:
-      Underweight -> -200 ml
-      Normal      ->   0 ml
-      Overweight  -> +200 ml
-    Guards invalid inputs (<= 0) as (0.0, "Invalid", 0).
-    """
+4) personalized_goal
+   - Input: age (int), height (float), weight (float), condition (str)
+   - Output: dict with keys:
+       goal (int), base (int), bmi (float), bmi_cat (str),
+       bmi_adj (int), cond_adj (int)
+   - Formula:
+       final_goal = age_base_goal(age) + bmi_adjustment + condition_adjustment
 
-def age_base_goal(age: int) -> int:
-    """
-    Returns base daily water goal (ml) by age band:
-      4–8   -> 1200
-      9–13  -> 1700
-      14–64 -> 2000
-      65+   -> 1700
-    """
+UI HELPER ROUTINE
+-----------------
+5) mascot
+   - Input: progress_pct (int 0..100)
+   - Output: emoji (str), headline (str)
+   - Milestones:
+       0%    -> "😐", "Let's Begin!"
+       25%+  -> "😊", "Good Start!"
+       50%+  -> "👍", "Great progress!"
+       75%+  -> "💪", "Almost there!"
+       100%+ -> "🎉", "Amazing!"
 
-def condition_adjustment(condition: str) -> int:
-    """
-    Health condition to ml adjustment:
-      "Normal / Healthy"         ->    0
-      "Athlete / High Activity"  -> +300
-      "Hot Climate"              -> +200
-      "Pregnant"                 -> +250
-      "Diabetic"                 -> +150
-      "Kidney / Heart"           -> -300
-    """
+VISUALIZATION ROUTINE
+---------------------
+6) draw_bottle
+   - Input: progress_pct (float), width (int), height (int)
+   - Output: PIL.Image (rendered bottle with fill level)
+   - Notes:
+       Uses rectangles, ellipse and polygon primitives for wide Pillow compatibility.
+       Includes a simple wave line and a droplet icon.
 
-def personalized_goal(age: int, height: float, weight: float, condition: str) -> dict:
-    """
-    final_goal = age_base_goal(age) + bmi_adjustment + condition_adjustment
-    Returns dict:
-      {
-        "goal": int,      # final daily target (ml)
-        "base": int,      # age-based base goal (ml)
-        "bmi": float,     # BMI rounded to 1 decimal
-        "bmi_cat": str,   # BMI category
-        "bmi_adj": int,   # BMI-based adjustment (ml)
-        "cond_adj": int   # condition-based adjustment (ml)
-      }
-    """
+SCREEN ROUTINES (NAVIGATION FLOW)
+---------------------------------
+7) welcome_screen
+   - Onboarding UI with inputs (age, height, weight, condition)
+   - Shows condition adjustment preview
+   - CTA: "Calculate My Goal →" → goes to summary
 
+8) summary_screen
+   - Displays profile (age, height, weight, BMI + category)
+   - Shows goal calculation breakdown (base, BMI adj, condition adj)
+   - Prominent daily goal display
+   - Actions: "← Back" (to welcome), "Start Tracking! →" (to tracker)
 
---------------------------------------------------------
-UI Helper Routines (mascot feedback)
---------------------------------------------------------
-def mascot(progress_pct: int) -> tuple[str, str]:
-    """
-    Maps progress percentage to (emoji, headline):
-      0%    -> ("😐", "Let's Begin!")
-      25%+  -> ("😊", "Good Start!")
-      50%+  -> ("👍", "Great progress!")
-      75%+  -> ("💪", "Almost there!")
-      100%+ -> ("🎉", "Amazing!")
-    """
+9) tracker_screen
+   - KPI row: Today’s Goal / Progress % / Remaining ml
+   - Mascot emoji + banner ("Time to hydrate!" or "Good start! Keep drinking!")
+   - Bottle card with fill visualization, numeric progress, and percentage bar
+   - Quick add: +250 ml and +500 ml
+   - Custom amount input + Add
+   - Tip rotator (cycles through TIPS)
+   - Reset confirmation panel (styled warning and progress preview)
+   - Balloons celebration at 100%
 
+SESSION STATE KEYS (st.session_state)
+-------------------------------------
+- screen        : "welcome" | "summary" | "tracker"
+- profile       : {"age": int, "height": float, "weight": float, "condition": str}
+- intake        : int (current daily intake in ml)
+- tip_index     : int (index within TIPS)
+- show_reset    : bool (whether reset confirmation panel is visible)
+- day           : date (used to auto-reset intake on new calendar day)
 
---------------------------------------------------------
-Visualization Routine (water bottle)
---------------------------------------------------------
-def draw_bottle(progress_pct: float, width: int = 220, height: int = 360) -> PIL.Image.Image:
-    """
-    Returns a PIL Image representing the bottle with fill level for progress_pct (0..100).
-    Uses rectangle/ellipse primitives for broad Pillow compatibility.
-    Includes a simple wave line and droplet icon.
-    """
-
-
---------------------------------------------------------
-Screen Routines (navigation flow)
---------------------------------------------------------
-def welcome_screen() -> None:
-    """
-    Onboarding screen:
-      - Inputs: age, height, weight, health condition
-      - Shows condition adjustment preview
-      - CTA: "Calculate My Goal →" transitions to summary screen
-    """
-
-def summary_screen() -> None:
-    """
-    Summary screen:
-      - Displays profile facts: age, height, weight, BMI (+ category)
-      - Goal breakdown: base (age), BMI adj, condition adj
-      - Shows computed daily goal prominently
-      - Actions: "← Back" to onboarding, "Start Tracking! →" to tracker
-    """
-
-def tracker_screen() -> None:
-    """
-    Main tracker:
-      - KPI row: Today's Goal / Progress % / Remaining ml
-      - Mascot emoji + banner message
-      - Bottle visualization card with progress bar and 'X ml / Y ml'
-      - Quick add buttons: +250 ml, +500 ml
-      - Custom amount number input + Add
-      - Tip rotator (cycles through TIPS)
-      - Reset confirmation panel styled with warning
-      - Balloons celebration when progress reaches 100%
-    """
-
-
---------------------------------------------------------
-State Keys (kept in st.session_state)
---------------------------------------------------------
-screen        : str   # "welcome" | "summary" | "tracker"
-profile       : dict  # {"age": int, "height": float, "weight": float, "condition": str}
-intake        : int   # current day intake in ml
-tip_index     : int   # index in TIPS list
-show_reset    : bool  # show reset confirmation panel
-day           : date  # current date to auto-reset daily intake
-
-
---------------------------------------------------------
-Progress Formulae (for reference)
---------------------------------------------------------
-remaining_ml      = max(0, goal_ml - intake_ml)
-progress_fraction = min(1.0, intake_ml / goal_ml) if goal_ml > 0 else 0.0
-progress_percent  = int(progress_fraction * 100)
+DERIVED VALUES (FORMULAE)
+-------------------------
+- remaining_ml      = max(0, goal_ml - intake_ml)
+- progress_fraction = min(1.0, intake_ml / goal_ml) if goal_ml > 0 else 0.0
+- progress_percent  = int(progress_fraction * 100)
