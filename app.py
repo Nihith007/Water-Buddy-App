@@ -729,3 +729,9 @@ elif st.session_state.step == "tracking":
 
 elif st.session_state.step == "reset_confirm":
     show_reset_confirmation()
+    
+st.markdown(f'''
+<div class="water-container" aria-label="water container">
+    <div class="water-fill" style="height:{fill_height};"></div>
+    <div class="water-drop-icon">💧</div>
+</div>''', unsafe_allow_html=True)
