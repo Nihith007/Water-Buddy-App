@@ -52,14 +52,21 @@ def bmi_adjustment(category):
     return adjustments.get(category, 0)
 
 def emoji_for_progress(percentage):
+    # Updated with more emojis and messages for motivation
     if percentage == 0:
-        return "😐", "Let's Begin!"
-    elif percentage < 50:
-        return "🙂", "Good Start!"
+        return "😐", "💧 Let's Begin!"
+    elif percentage < 20:
+        return "🙂", "🌊 Good Start!"
+    elif percentage < 40:
+        return "😊", "👍 Keep Going!"
+    elif percentage < 60:
+        return "😀", "💦 Halfway There!"
+    elif percentage < 80:
+        return "😄", "👏 Almost Done!"
     elif percentage < 100:
-        return "😀", "Keep It Up!"
+        return "🏅", "🎉 Excellent!"
     else:
-        return "🏆", "Goal Achieved!"
+        return "🏆", "🥳 Goal Achieved!"
 
 # --- Initialize session state ---
 
@@ -78,6 +85,8 @@ if "water_intake" not in st.session_state:
     st.session_state.water_intake = 0
 if "goal" not in st.session_state:
     st.session_state.goal = 0
+if "show_tip" not in st.session_state:
+    st.session_state.show_tip = False
 
 # --- App Title and Emoji ---
 st.markdown(
@@ -184,6 +193,7 @@ def show_input_page():
             st.session_state.bmi = bmi
             st.session_state.bmi_cat = category
             st.session_state.step = "summary"
+            st.session_state.show_tip = False
 
     st.markdown(
         '<div class="footer">💡 No login required &bull; All data stays private &bull; Free forever</div>',
@@ -366,6 +376,7 @@ def show_summary():
             st.session_state.goal = total
             st.session_state.water_intake = 0
             st.session_state.step = "tracking"
+            st.session_state.show_tip = False
 
 def show_tracking():
     st.markdown(
@@ -466,6 +477,7 @@ def show_tracking():
             color: #193688;
             margin-bottom: 15px;
             text-align: center;
+            border: 2px solid #439eff;
         }
         .btn-add {
             border-radius: 10px;
@@ -546,20 +558,18 @@ def show_tracking():
     col2.markdown(f'<p class="stat-label">Progress</p><p class="stat-value stat-progress">{percent}%</p>', unsafe_allow_html=True)
     col3.markdown(f'<p class="stat-label">Remaining</p><p class="stat-value stat-remaining">{remaining} ml</p>', unsafe_allow_html=True)
 
-    # Emoji and label
     emoji, label = emoji_for_progress(percent)
     with st.container():
         st.markdown(f'<div class="drop-container">', unsafe_allow_html=True)
         st.markdown(f'<div class="drop-emoji">{emoji}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="drop-bubble">💧 {label}</div>', unsafe_allow_html=True)
-        # Water container with dynamic fill height
+        st.markdown(f'<div class="drop-bubble">{label}</div>', unsafe_allow_html=True)
+
         fill_percent = percent if percent <= 100 else 100
         fill_height = f"{fill_percent}%"  # fill from bottom
 
-        # Show droplet when empty, water bubbles when filling
+        # Show water bubbles or droplet depending on progress
         water_bubbles = ""
         if fill_percent > 5:
-            # Show bubbles
             water_bubbles = """
             <div style='position:absolute; bottom: 30%; left: 30%; width:8px; height:8px; background: white; border-radius: 50%; opacity: 0.6; animation: bubblemove 1.5s infinite;'></div>
             <div style='position:absolute; bottom: 40%; right: 25%; width:10px; height:10px; background: white; border-radius: 50%; opacity: 0.4; animation: bubblemove 2s infinite; animation-delay: 1s;'></div>
@@ -586,8 +596,10 @@ def show_tracking():
     col1, col2 = st.columns(2)
     if col1.button("+250 ml\n1 cup", key="add_250"):
         st.session_state.water_intake += 250
+        st.session_state.show_tip = False
     if col2.button("+500 ml\n2 cups", key="add_500"):
         st.session_state.water_intake += 500
+        st.session_state.show_tip = False
 
     col_custom, col_btn = st.columns([4,1])
     with col_custom:
@@ -598,6 +610,7 @@ def show_tracking():
                 amt = int(amount_str)
                 if amt > 0:
                     st.session_state.water_intake += amt
+                    st.session_state.show_tip = False
                     # Clear input after adding
                     st.session_state["custom_amount_input"] = ""
             except Exception:
@@ -609,7 +622,7 @@ def show_tracking():
     if col_tip.button("💡 Tip", key="tip_click"):
         st.session_state.show_tip = True
 
-    if "show_tip" in st.session_state and st.session_state.show_tip:
+    if st.session_state.show_tip:
         st.markdown(
             '<div class="tip-box">💡 Staying hydrated keeps your skin healthy and glowing!</div>', 
             unsafe_allow_html=True)
@@ -701,8 +714,7 @@ def show_reset_confirmation():
         if st.button("Reset", key="confirm_reset"):
             st.session_state.water_intake = 0
             st.session_state.step = "tracking"
-            if "show_tip" in st.session_state:
-                del st.session_state["show_tip"]
+            st.session_state.show_tip = False
 
 # --- Main app logic ---
 
