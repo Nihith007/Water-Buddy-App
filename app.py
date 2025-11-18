@@ -576,17 +576,11 @@ def show_tracking():
             <style>@keyframes bubblemove { 0% {opacity: 0.3; transform: translateY(0)} 50% {opacity: 0.8; transform: translateY(-6px)} 100% {opacity: 0.3; transform: translateY(0)}</style>
             """
 
-        st.markdown(
-            f"""
-            <div class="water-container" aria-label="water container">
-                <div class="water-fill" style="height:{fill_height};">
-                    {water_bubbles}
-                </div>
-                {'' if fill_percent > 5 else '<div class="water-droplet" aria-label="water droplet"></div>'}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.markdown(f'''
+<div class="water-container" aria-label="water container">
+    <div class="water-fill" style="height:{fill_height};"></div>
+    <div class="water-drop-icon">💧</div>
+</div>''', unsafe_allow_html=True)
         st.markdown(f'<div class="progress-text">{intake} ml / {goal} ml</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="percent-text">{percent}% Complete</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
