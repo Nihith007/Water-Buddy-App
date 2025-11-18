@@ -1,332 +1,719 @@
 import streamlit as st
-import math
 
-# Page configuration
-st.set_page_config(
-    page_title="WaterBuddy+",
-    page_icon="💧",
-    layout="centered"
-)
+# --- Helper functions ---
 
-# Custom CSS for styling
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        text-align: center;
-        color: #1f77b4;
-        margin-bottom: 0.5rem;
-    }
-    .sub-header {
-        font-size: 1.2rem;
-        text-align: center;
-        color: #666;
-        margin-bottom: 2rem;
-    }
-    .section-header {
-        font-size: 1.5rem;
-        font-weight: bold;
-        margin-top: 1.5rem;
-        margin-bottom: 1rem;
-    }
-    .goal-box {
-        background-color: #f0f8ff;
-        padding: 1.5rem;
-        border-radius: 10px;
-        border-left: 5px solid #1f77b4;
-        margin: 1rem 0;
-    }
-    .progress-container {
-        background-color: #f0f0f0;
-        border-radius: 10px;
-        height: 20px;
-        margin: 1rem 0;
-    }
-    .progress-bar {
-        background-color: #1f77b4;
-        height: 100%;
-        border-radius: 10px;
-        transition: width 0.5s ease;
-    }
-    .metric-box {
-        background-color: #f9f9f9;
-        padding: 1rem;
-        border-radius: 8px;
-        border: 1px solid #e0e0e0;
-        margin: 0.5rem 0;
-    }
-</style>
-""", unsafe_allow_html=True)
+def calculate_bmi(weight, height_cm):
+    height_m = height_cm / 100
+    if height_m == 0:
+        return 0
+    return round(weight / (height_m ** 2), 1)
 
-# Initialize session state variables
-if 'page' not in st.session_state:
-    st.session_state.page = "input"
-if 'water_intake' not in st.session_state:
-    st.session_state.water_intake = 0
-if 'user_data' not in st.session_state:
-    st.session_state.user_data = {}
-if 'daily_goal' not in st.session_state:
-    st.session_state.daily_goal = 0
-if 'show_reset_confirmation' not in st.session_state:
-    st.session_state.show_reset_confirmation = False
-
-def calculate_bmi(height, weight):
-    """Calculate BMI given height in cm and weight in kg"""
-    if height > 0:
-        height_m = height / 100
-        return weight / (height_m ** 2)
-    return 0
-
-def get_bmi_category(bmi):
-    """Get BMI category based on BMI value"""
+def bmi_category(bmi):
     if bmi < 18.5:
-        return "Underweight", -200
+        return "Underweight", "#B07124"
     elif 18.5 <= bmi < 25:
-        return "Normal", 0
+        return "Normal weight", "#228B22"
     elif 25 <= bmi < 30:
-        return "Overweight", -100
+        return "Overweight", "#FF8C00"
     else:
-        return "Obese", -200
+        return "Obese", "#B22222"
 
-def calculate_water_goal(age, height, weight, health_condition):
-    """Calculate daily water goal based on user inputs"""
-    # Base goal by age
-    if age < 18:
-        base_goal = 1700
-    elif 18 <= age < 55:
-        base_goal = 2000
+def base_goal_by_age(age):
+    # Simple age-based base goals (example values)
+    if age <= 8:
+        return 1200
+    elif 9 <= age <= 13:
+        return 1700
+    elif 14 <= age <= 18:
+        return 2200
+    elif 19 <= age <= 50:
+        return 2500
     else:
-        base_goal = 1800
-    
-    # BMI adjustment
-    bmi = calculate_bmi(height, weight)
-    bmi_category, bmi_adjustment = get_bmi_category(bmi)
-    
-    # Health condition adjustment
-    health_adjustment = 0
-    if health_condition == "Athlete / High Activity":
-        health_adjustment = 300
-    elif health_condition == "Pregnant / Breastfeeding":
-        health_adjustment = 500
-    elif health_condition == "Kidney Issues":
-        health_adjustment = -300
-    
-    # Calculate final goal
-    final_goal = base_goal + bmi_adjustment + health_adjustment
-    
-    return {
-        "base_goal": base_goal,
-        "bmi": bmi,
-        "bmi_category": bmi_category,
-        "bmi_adjustment": bmi_adjustment,
-        "health_adjustment": health_adjustment,
-        "final_goal": final_goal
+        return 2000
+
+def health_condition_adjustment(condition):
+    # ml adjustment based on health condition
+    adjustments = {
+        "Normal / Healthy": 0,
+        "Athlete / High Activity": 300,
+        "Pregnant": 200,
+        "Breastfeeding": 500,
     }
+    return adjustments.get(condition, 0)
 
-def input_page():
-    """Display the input form page"""
-    st.markdown('<div class="main-header">Welcome to WaterBuddy+</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Your personalized hydration companion</div>', unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    st.markdown('<div class="section-header">Age (years)</div>', unsafe_allow_html=True)
-    age = st.number_input("Enter your age", min_value=1, max_value=120, value=25, key="age_input")
-    
-    st.markdown('<div class="section-header">Height (cm)</div>', unsafe_allow_html=True)
-    height = st.number_input("Enter your height", min_value=50, max_value=250, value=170, key="height_input")
-    
-    st.markdown('<div class="section-header">Weight (kg)</div>', unsafe_allow_html=True)
-    weight = st.number_input("Enter your weight", min_value=10, max_value=300, value=70, key="weight_input")
-    
-    st.markdown('<div class="section-header">Health Condition</div>', unsafe_allow_html=True)
-    health_condition = st.radio(
-        "Select your health condition:",
-        ["Normal / Healthy", "Athlete / High Activity", "Pregnant / Breastfeeding", "Kidney Issues"],
-        index=0,
-        key="health_radio"
-    )
-    
-    st.markdown("---")
-    
-    if st.button("Calculate My Goal →", type="primary", use_container_width=True):
-        # Store user data
-        st.session_state.user_data = {
-            "age": age,
-            "height": height,
-            "weight": weight,
-            "health_condition": health_condition
-        }
-        
-        # Calculate water goal
-        calculation = calculate_water_goal(age, height, weight, health_condition)
-        st.session_state.daily_goal = calculation["final_goal"]
-        st.session_state.calculation_details = calculation
-        
-        # Move to results page
-        st.session_state.page = "results"
-        st.rerun()
-    
-    st.markdown("---")
-    st.caption("No login required • All data stays private • Free forever")
+def bmi_adjustment(category):
+    # ml adjustment based on BMI category
+    adjustments = {
+        "Underweight": -200,
+        "Normal weight": 0,
+        "Overweight": 100,
+        "Obese": 200,
+    }
+    return adjustments.get(category, 0)
 
-def results_page():
-    """Display the calculation results page"""
-    st.markdown('<div class="main-header">Welcome to WaterBuddy+</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Your personalized hydration companion</div>', unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    st.markdown('<div class="section-header">Your Personalized Profile</div>', unsafe_allow_html=True)
-    
-    # User profile in columns
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown(f'<div class="metric-box">**Age**<br>{st.session_state.user_data["age"]} years</div>', unsafe_allow_html=True)
-        bmi = st.session_state.calculation_details["bmi"]
-        st.markdown(f'<div class="metric-box">**BMI**<br>{bmi:.1f}<br>{st.session_state.calculation_details["bmi_category"]}</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f'<div class="metric-box">**Height**<br>{st.session_state.user_data["height"]} cm</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="metric-box">**Weight**<br>{st.session_state.user_data["weight"]} kg</div>', unsafe_allow_html=True)
-    
-    st.markdown("**Condition**")
-    st.write(f"- **{st.session_state.user_data['health_condition']}**")
-    
-    st.markdown("---")
-    
-    st.markdown('<div class="section-header">Goal Calculation</div>', unsafe_allow_html=True)
-    
-    # Goal calculation details
-    st.markdown(f'**Base Goal (Age)**: {st.session_state.calculation_details["base_goal"]} ml')
-    st.markdown(f'**BMI Adjustment ({st.session_state.calculation_details["bmi_category"]})**: {st.session_state.calculation_details["bmi_adjustment"]} ml')
-    st.markdown(f'**Health Condition**: {st.session_state.calculation_details["health_adjustment"]} ml')
-    
-    st.markdown("---")
-    
-    # Final goal
-    st.markdown(f'<div class="goal-box"><h2 style="text-align: center; margin: 0;">Your Daily Goal</h2><h1 style="text-align: center; color: #1f77b4; margin: 0;">{st.session_state.daily_goal} ml</h1></div>', unsafe_allow_html=True)
-    
-    # Navigation buttons
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("← Back", use_container_width=True):
-            st.session_state.page = "input"
-            st.rerun()
-    
-    with col2:
-        if st.button("Start Tracking! →", type="primary", use_container_width=True):
-            st.session_state.page = "tracking"
-            st.rerun()
-
-def tracking_page():
-    """Display the water tracking page"""
-    # Calculate progress
-    progress_percent = (st.session_state.water_intake / st.session_state.daily_goal * 100) if st.session_state.daily_goal > 0 else 0
-    remaining_water = max(0, st.session_state.daily_goal - st.session_state.water_intake)
-    
-    # Header
-    st.markdown(f'<div class="main-header">Today\'s Goal {st.session_state.daily_goal} ml</div>', unsafe_allow_html=True)
-    
-    # Progress metrics
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.metric("Progress", f"{progress_percent:.0f}%")
-    
-    with col2:
-        st.metric("Remaining", f"{remaining_water:.0f} ml")
-    
-    # Progress message
-    if progress_percent == 0:
-        st.write("Let's Begin!")
-    elif progress_percent < 30:
-        st.write("Good Start! Keep drinking!")
-    elif progress_percent < 70:
-        st.write("You're doing great! Keep it up!")
-    elif progress_percent < 100:
-        st.write("Almost there! You can do it!")
+def emoji_for_progress(percentage):
+    if percentage == 0:
+        return "😐", "Let's Begin!"
+    elif percentage < 50:
+        return "🙂", "Good Start!"
+    elif percentage < 100:
+        return "😀", "Keep It Up!"
     else:
-        st.write("🎉 Congratulations! You've reached your goal!")
-    
-    # Progress bar
-    st.markdown(f'<div class="progress-container"><div class="progress-bar" style="width: {min(progress_percent, 100)}%;"></div></div>', unsafe_allow_html=True)
-    
-    # Progress text
-    st.write(f"{st.session_state.water_intake:.0f} ml / {st.session_state.daily_goal:.0f} ml")
-    st.write(f"{progress_percent:.0f}% Complete")
-    
-    # Hydration reminder
-    if progress_percent < 100:
-        st.checkbox("Time to hydrate!", value=False, key="reminder")
-    
-    st.markdown("---")
-    
-    # Water intake buttons
-    st.markdown("### Add Water Intake")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("+250 ml\n1 cup", use_container_width=True):
-            st.session_state.water_intake += 250
-    
-    with col2:
-        if st.button("+500 ml\n2 cups", use_container_width=True):
-            st.session_state.water_intake += 500
-    
-    with col3:
-        custom_amount = st.number_input("Custom amount (ml)", min_value=0, max_value=5000, value=250, key="custom_ml")
-        if st.button("Add", use_container_width=True):
-            st.session_state.water_intake += custom_amount
-    
-    # Reset and tip buttons
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("Reset", use_container_width=True):
-            st.session_state.show_reset_confirmation = True
-    
-    with col2:
-        if st.button("Tip", use_container_width=True):
-            tips = [
-                "Staying hydrated keeps your skin healthy and glowing!",
-                "Drink water before meals to help with digestion!",
-                "Carry a water bottle with you throughout the day!",
-                "Set reminders to drink water regularly!",
-                "Eating water-rich foods like fruits also helps hydration!"
-            ]
-            st.info(tips[st.session_state.get('tip_index', 0) % len(tips)])
-            st.session_state.tip_index = st.session_state.get('tip_index', 0) + 1
-    
-    # Reset confirmation dialog
-    if st.session_state.show_reset_confirmation:
-        st.markdown("---")
-        st.warning("Start New Day?")
-        st.write("This will clear your current progress and reset your daily water intake to 0 ml.")
-        st.write(f"Current progress: {st.session_state.water_intake:.0f} ml / {st.session_state.daily_goal:.0f} ml ({progress_percent:.0f}%)")
-        st.write("This action cannot be undone")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("Cancel", use_container_width=True):
-                st.session_state.show_reset_confirmation = False
-                st.rerun()
-        
-        with col2:
-            if st.button("Reset", type="primary", use_container_width=True):
-                st.session_state.water_intake = 0
-                st.session_state.show_reset_confirmation = False
-                st.rerun()
+        return "🏆", "Goal Achieved!"
 
-# Main app logic
-if st.session_state.page == "input":
-    input_page()
-elif st.session_state.page == "results":
-    results_page()
-elif st.session_state.page == "tracking":
-    tracking_page()
+# --- Initialize session state ---
+
+if "step" not in st.session_state:
+    st.session_state.step = "input"  # other steps: "summary", "tracking", "reset_confirm"
+
+if "age" not in st.session_state:
+    st.session_state.age = None
+if "height" not in st.session_state:
+    st.session_state.height = None
+if "weight" not in st.session_state:
+    st.session_state.weight = None
+if "condition" not in st.session_state:
+    st.session_state.condition = "Normal / Healthy"
+if "water_intake" not in st.session_state:
+    st.session_state.water_intake = 0
+if "goal" not in st.session_state:
+    st.session_state.goal = 0
+
+# --- App Title and Emoji ---
+st.markdown(
+    "<h1 style='text-align:center; color:#1f3e82;'>💧</h1>", 
+    unsafe_allow_html=True)
+st.markdown(
+    "<h1 style='text-align:center; color:#1f3e82;'>Welcome to WaterBuddy+</h1>",
+    unsafe_allow_html=True)
+st.markdown(
+    "<p style='text-align:center; color:gray;'>Your personalized hydration companion</p>",
+    unsafe_allow_html=True)
+
+def show_input_page():
+    st.markdown(
+        """
+        <style>
+        .age-box {
+            background-color: #e8f1fa;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .height-box {
+            background-color: #faf2ff;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .weight-box {
+            background-color: #ecfbee;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .condition-box {
+            background-color: #fff7e8;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+        .adjustment {
+            font-size: 14px;
+            color: #c1440e;
+        }
+        .calculate-button {
+            background-color:#A0ABB8;
+            color:#6E7483;
+            font-weight:bold;
+            font-size:16px;
+            padding:15px;
+            text-align:center;
+            width:100%;
+            border-radius:8px;
+            cursor:pointer;
+        }
+        .footer {
+            background-color:#d7e2fd;
+            border-radius:8px;
+            color:#193688;
+            padding: 10px;
+            font-size:14px;
+            margin-top:30px;
+            text-align:center;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+    with st.form("input_form"):
+        st.markdown('<div class="age-box"><label style="color:#193688;font-weight:bold;">Age (years)</label></div>', unsafe_allow_html=True)
+        age = st.number_input("", min_value=1, max_value=120, value=st.session_state.age or 25, step=1, format="%d", help="Enter your age")
+        
+        st.markdown('<div class="height-box"><label style="color:#5a2a85;font-weight:bold;">Height (cm)</label></div>', unsafe_allow_html=True)
+        height = st.number_input("", min_value=1, max_value=300, value=st.session_state.height or 170, step=1, format="%d", help="Enter your height")
+
+        st.markdown('<div class="weight-box"><label style="color:#1f6521;font-weight:bold;">Weight (kg)</label></div>', unsafe_allow_html=True)
+        weight = st.number_input("", min_value=1, max_value=500, value=st.session_state.weight or 65, step=1, format="%d", help="Enter your weight")
+
+        st.markdown('<div class="condition-box"><label style="color:#a85d00;font-weight:bold;">Health Condition</label></div>', unsafe_allow_html=True)
+        condition = st.selectbox("", options=["Normal / Healthy", "Athlete / High Activity", "Pregnant", "Breastfeeding"], index=["Normal / Healthy", "Athlete / High Activity", "Pregnant", "Breastfeeding"].index(st.session_state.condition), help="Select your health condition")
+        
+        # Calculate adjustment to show below selectbox dynamically
+        bmi = calculate_bmi(weight, height)
+        category, cat_color = bmi_category(bmi)
+        base = base_goal_by_age(age)
+        bmi_adj = bmi_adjustment(category)
+        condition_adj = health_condition_adjustment(condition)
+
+        adjustment_ml = bmi_adj + condition_adj
+
+        adj_text = f"{'+' if adjustment_ml >= 0 else ''}{adjustment_ml} ml"
+        adj_color = "#c1440e" if adjustment_ml < 0 else "#d16f00" if adjustment_ml > 0 else "#333"
+
+        st.markdown(f'<p class="adjustment" style="color:{adj_color};">Adjustment: {adj_text}</p>', unsafe_allow_html=True)
+
+        submitted = st.form_submit_button("Calculate My Goal →")
+
+        if submitted:
+            st.session_state.age = age
+            st.session_state.height = height
+            st.session_state.weight = weight
+            st.session_state.condition = condition
+            st.session_state.water_intake = 0
+            st.session_state.goal = base + adjustment_ml
+            st.session_state.bmi = bmi
+            st.session_state.bmi_cat = category
+            st.session_state.step = "summary"
+
+    st.markdown(
+        '<div class="footer">💡 No login required &bull; All data stays private &bull; Free forever</div>',
+        unsafe_allow_html=True)
+
+def show_summary():
+    st.markdown(
+        """
+        <style>
+        .profile-box {
+            background-color:#e8f1fa;
+            border-radius: 12px; 
+            padding: 15px; 
+            margin-bottom: 20px;
+            border: 1.5px solid #a3c0ff;
+        }
+        .profile-title {
+            font-weight: bold; 
+            text-align:center; 
+            margin-bottom: 12px; 
+            font-size: 18px;
+        }
+        .profile-data {
+            display:flex; 
+            gap: 15px; 
+            justify-content:center; 
+            flex-wrap: wrap;
+        }
+        .profile-item {
+            background-color:#ffffff;
+            border-radius: 12px;
+            padding: 15px 20px;
+            min-width: 90px;
+            text-align: center;
+            box-shadow: 0px 0px 6px #d0d9f2;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .profile-key {
+            font-size: 14px;
+            color: #1f3e82;
+            margin-bottom: 6px;
+        }
+        .profile-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1f3e82;
+        }
+        .bmi-value {
+            font-size: 26px;
+            font-weight: 700;
+            color: #800080;
+            margin-bottom: 0;
+        }
+        .bmi-category {
+            font-size: 14px;
+            font-weight: 600;
+            color: #a96216;
+        }
+        .condition {
+            font-weight: 600;
+            margin-top: 15px;
+            color: #a85d00;
+            font-size: 16px;
+            text-align: center;
+        }
+        .goal-box {
+            background-color: #ecfbee;
+            border-radius: 12px;
+            padding: 20px 15px;
+            box-shadow: 0 1px 3px #a4d09c;
+            margin-bottom: 20px;
+        }
+        .goal-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background-color: #fff;
+            margin: 6px 0;
+            border-radius: 8px;
+            align-items: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .goal-label {
+            margin: 0;
+            color: #193688;
+        }
+        .goal-value {
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .goal-base {
+            color: #193688;
+        }
+        .goal-bmi-adjustment {
+            color: #800080;
+        }
+        .goal-condition {
+            color: #d16f00;
+        }
+        .final-goal {
+            background-color: #0e8a1b;
+            color: #fff;
+            padding: 15px 0;
+            text-align: center;
+            border-radius: 8px;
+            font-weight: 900;
+            font-size: 30px;
+            margin-top: 15px;
+        }
+        .btn-block {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .btn-back, .btn-start {
+            font-weight: 700;
+            padding: 12px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            border: none;
+            font-size: 16px;
+            width: 48%;
+        }
+        .btn-back {
+            background-color: #babfc5;
+            color: #555c69;
+        }
+        .btn-start {
+            background-color: #1850f5;
+            color: white;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+    st.markdown('<div class="profile-box">', unsafe_allow_html=True)
+    st.markdown('<p class="profile-title">Your Personalized Profile</p>', unsafe_allow_html=True)
+    st.markdown('<div class="profile-data">', unsafe_allow_html=True)
+
+    # Age
+    st.markdown(
+        f'<div class="profile-item"><div class="profile-key">Age</div><div class="profile-value">{st.session_state.age} years</div></div>', unsafe_allow_html=True)
+    # BMI
+    st.markdown(
+        f'<div class="profile-item"><div class="profile-key">BMI</div><div class="bmi-value">{st.session_state.bmi}</div><div class="bmi-category">{st.session_state.bmi_cat}</div></div>', unsafe_allow_html=True)
+    # Height
+    st.markdown(
+        f'<div class="profile-item"><div class="profile-key">Height</div><div class="profile-value" style="color:#1f6521;">{st.session_state.height} cm</div></div>', unsafe_allow_html=True)
+    # Weight
+    st.markdown(
+        f'<div class="profile-item"><div class="profile-key">Weight</div><div class="profile-value" style="color:#1f6521;">{st.session_state.weight} kg</div></div>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)  # close profile-data
+    st.markdown(f'<p class="condition">🏃 {st.session_state.condition}</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)  # close profile-box
+
+    # Goal calculation section
+    base = base_goal_by_age(st.session_state.age)
+    category = st.session_state.bmi_cat
+    bmi_adj = bmi_adjustment(category)
+    condition_adj = health_condition_adjustment(st.session_state.condition)
+    total = base + bmi_adj + condition_adj
+
+    st.markdown('<div class="goal-box">', unsafe_allow_html=True)
+    st.markdown('<div style="font-weight:bold; font-size:17px; padding-bottom: 10px;">Goal Calculation</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="goal-row"><p class="goal-label">Base Goal (Age)</p><p class="goal-value goal-base">{base} ml</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="goal-row"><p class="goal-label">BMI Adjustment<br><small style="color:#a96216;">({category})</small></p><p class="goal-value goal-bmi-adjustment">{bmi_adj} ml</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="goal-row"><p class="goal-label">Health Condition</p><p class="goal-value goal-condition">{condition_adj:+d} ml</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="final-goal">Your Daily Goal<br><span style="font-size:36px;">{total} ml</span></div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("← Back", key="back_from_summary"):
+            st.session_state.step = "input"
+    with col2:
+        if st.button("Start Tracking! →", key="start_tracking"):
+            # Save final goal:
+            st.session_state.goal = total
+            st.session_state.water_intake = 0
+            st.session_state.step = "tracking"
+
+def show_tracking():
+    st.markdown(
+        """
+        <style>
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            font-weight: 600;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 15px;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #193688;
+        }
+        .stat-value {
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .stat-progress {
+            color: #208028;
+        }
+        .stat-remaining {
+            color: #d45c13;
+        }
+        .drop-container {
+            background-color: #e2f0ff;
+            border-radius: 12px;
+            padding: 25px 10px;
+            margin: 0 auto 20px auto;
+            width: 160px;
+            text-align: center;
+            box-shadow: 0 0 10px #b5d5ff;
+            position: relative;
+        }
+        .drop-emoji {
+            font-size: 48px;
+        }
+        .drop-bubble {
+            margin-top: 12px;
+            color: #193688;
+            font-weight:bold;
+            font-size: 14px;
+        }
+        .water-container {
+            border: 3px solid #439eff;
+            border-radius: 15px;
+            width: 90px;
+            height: 170px;
+            margin: 8px auto 0;
+            position: relative;
+            box-shadow: 0 8px 8px -6px #439eff81 inset;
+            background: #e3f7ff;
+        }
+        .water-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: #2e95f6;
+            border-radius: 0 0 15px 15px;
+            transition: height 0.4s ease-in-out;
+            box-shadow: inset 0 5px 6px #9fdbff;
+        }
+        .water-droplet {
+            width: 40px;
+            height: 52px;
+            margin: 0 auto;
+            position: relative;
+            background: #65c7ff;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            box-shadow: inset 0 10px 20px #3bb1ff;
+            filter: drop-shadow( 0 3px 2px #3da0fd90);
+            animation: drop-fall 2.8s ease-in-out infinite;
+        }
+        @keyframes drop-fall {
+            0%, 100% { top: 0px; }
+            50% { top: 8px; }
+        }
+        .progress-text {
+            font-weight: 700;
+            margin-top: 10px;
+            color: #193688;
+        }
+        .percent-text {
+            font-weight: 600;
+            font-size: 12px;
+            color: #5d5d5d;
+        }
+        .prompt-box {
+            background-color: #e2f0ff;
+            border-radius: 12px;
+            padding: 15px 20px;
+            font-weight: 600;
+            font-size: 18px;
+            color: #193688;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .btn-add {
+            border-radius: 10px;
+            color: white;
+            background-color: #1850f5;
+            border: none;
+            font-weight: 700;
+            font-size: 16px;
+            padding: 15px 15px;
+            margin-left: 8px;
+            cursor: pointer;
+        }
+        .btn-ml {
+            border-radius: 12px;
+            background-color: #1850f5;
+            color: white;
+            font-weight: 700;
+            font-size: 16px;
+            padding: 15px;
+            cursor: pointer;
+            width: 45%;
+            margin: 5px 2.5%;
+            border: none;
+        }
+        .btn-ml-small {
+            font-size: 12px;
+            font-weight: 400;
+            margin-top: 2px;
+            opacity: 0.75;
+        }
+        .input-ml {
+            border-radius: 10px;
+            border: 2px solid #55c6ff;
+            padding: 10px 12px;
+            width: 180px;
+            font-size: 14px;
+        }
+        .btn-reset {
+            background-color: #babfc5;
+            color: #555c69;
+            border: none;
+            padding: 12px 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-tip {
+            background-color: #faf2ff;
+            border: 2px solid #ad84ff;
+            color: #7318ff;
+            padding: 12px 15px;
+            font-weight: 700;
+            border-radius: 8px;
+            margin-top: 20px;
+            cursor: pointer;
+        }
+        .tip-box {
+            background-color: #faf2ff;
+            border: 2px solid #ad84ff;
+            color: #7318ff;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 10px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+    goal = st.session_state.goal
+    intake = st.session_state.water_intake
+    percent = int(min((intake / goal) * 100, 100)) if goal > 0 else 0
+    remaining = max(goal - intake, 0)
+
+    col1, col2, col3 = st.columns(3)
+    col1.markdown(f'<p class="stat-label">Today\'s Goal</p><p class="stat-value">{goal} ml</p>', unsafe_allow_html=True)
+    col2.markdown(f'<p class="stat-label">Progress</p><p class="stat-value stat-progress">{percent}%</p>', unsafe_allow_html=True)
+    col3.markdown(f'<p class="stat-label">Remaining</p><p class="stat-value stat-remaining">{remaining} ml</p>', unsafe_allow_html=True)
+
+    # Emoji and label
+    emoji, label = emoji_for_progress(percent)
+    with st.container():
+        st.markdown(f'<div class="drop-container">', unsafe_allow_html=True)
+        st.markdown(f'<div class="drop-emoji">{emoji}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="drop-bubble">💧 {label}</div>', unsafe_allow_html=True)
+        # Water container with dynamic fill height
+        fill_percent = percent if percent <= 100 else 100
+        fill_height = f"{fill_percent}%"  # fill from bottom
+
+        # Show droplet when empty, water bubbles when filling
+        water_bubbles = ""
+        if fill_percent > 5:
+            # Show bubbles
+            water_bubbles = """
+            <div style='position:absolute; bottom: 30%; left: 30%; width:8px; height:8px; background: white; border-radius: 50%; opacity: 0.6; animation: bubblemove 1.5s infinite;'></div>
+            <div style='position:absolute; bottom: 40%; right: 25%; width:10px; height:10px; background: white; border-radius: 50%; opacity: 0.4; animation: bubblemove 2s infinite; animation-delay: 1s;'></div>
+            <style>@keyframes bubblemove { 0% {opacity: 0.3; transform: translateY(0)} 50% {opacity: 0.8; transform: translateY(-6px)} 100% {opacity: 0.3; transform: translateY(0)}</style>
+            """
+
+        st.markdown(
+            f"""
+            <div class="water-container" aria-label="water container">
+                <div class="water-fill" style="height:{fill_height};">
+                    {water_bubbles}
+                </div>
+                {'' if fill_percent > 5 else '<div class="water-droplet" aria-label="water droplet"></div>'}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.markdown(f'<div class="progress-text">{intake} ml / {goal} ml</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="percent-text">{percent}% Complete</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="prompt-box">💧 Time to hydrate!</div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    if col1.button("+250 ml\n1 cup", key="add_250"):
+        st.session_state.water_intake += 250
+    if col2.button("+500 ml\n2 cups", key="add_500"):
+        st.session_state.water_intake += 500
+
+    col_custom, col_btn = st.columns([4,1])
+    with col_custom:
+        amount_str = st.text_input("Custom amount (ml)", key="custom_amount_input")
+    with col_btn:
+        if st.button("Add", key="add_custom"):
+            try:
+                amt = int(amount_str)
+                if amt > 0:
+                    st.session_state.water_intake += amt
+                    # Clear input after adding
+                    st.session_state["custom_amount_input"] = ""
+            except Exception:
+                st.warning("Enter a valid positive integer")
+
+    col_reset, col_tip = st.columns(2)
+    if col_reset.button("🔄 Reset", key="reset_tracking"):
+        st.session_state.step = "reset_confirm"
+    if col_tip.button("💡 Tip", key="tip_click"):
+        st.session_state.show_tip = True
+
+    if "show_tip" in st.session_state and st.session_state.show_tip:
+        st.markdown(
+            '<div class="tip-box">💡 Staying hydrated keeps your skin healthy and glowing!</div>', 
+            unsafe_allow_html=True)
+
+def show_reset_confirmation():
+    st.markdown(
+        """
+        <style>
+        .warning-emoji {
+            font-size: 80px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .warning-text {
+            text-align: center;
+            color: #841c1c;
+            font-weight: 700;
+            font-size: 22px;
+            margin-bottom: 15px;
+        }
+        .explanation {
+            font-size: 16px;
+            color: #454851;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .progress-box {
+            background-color: #d7e2fd;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            text-align:center;
+            color: #193688;
+        }
+        .danger-zone {
+            background-color: #f9d7d3;
+            border-radius: 12px;
+            padding: 12px;
+            color: #841c1c;
+            font-weight: 700;
+            margin-bottom: 25px;
+            text-align:center;
+        }
+        .btn-cancel {
+            background-color: #babfc5;
+            color: #555c69;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            margin-right: 20px;
+            font-size: 16px;
+        }
+        .btn-reset {
+            background-color: #b91f1f;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            font-size: 16px;
+        }
+        .btn-container {
+            display: flex;
+            justify-content: center;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<div class="warning-emoji">⚠️</div>', unsafe_allow_html=True)
+    st.markdown('<div class="warning-text">Start New Day?</div>', unsafe_allow_html=True)
+    st.markdown('<div class="explanation">This will clear your current progress and reset your daily water intake to 0 ml.</div>', unsafe_allow_html=True)
+    progress_percent = int(min((st.session_state.water_intake / st.session_state.goal) * 100, 100)) if st.session_state.goal else 0
+    st.markdown(
+        f'<div class="progress-box"><strong>Current progress:</strong><br>{st.session_state.water_intake} ml / {st.session_state.goal} ml ({progress_percent}%)<br><progress value="{st.session_state.water_intake}" max="{st.session_state.goal}" style="width: 100%; height: 20px;"></progress></div>',
+        unsafe_allow_html=True)
+    st.markdown('<div class="danger-zone">⚠️ This action cannot be undone</div>', unsafe_allow_html=True)
+
+    col_cancel, col_reset = st.columns([1,1])
+    with col_cancel:
+        if st.button("Cancel", key="cancel_reset"):
+            st.session_state.step = "tracking"
+    with col_reset:
+        if st.button("Reset", key="confirm_reset"):
+            st.session_state.water_intake = 0
+            st.session_state.step = "tracking"
+            if "show_tip" in st.session_state:
+                del st.session_state["show_tip"]
+
+# --- Main app logic ---
+
+if st.session_state.step == "input":
+    show_input_page()
+
+elif st.session_state.step == "summary":
+    show_summary()
+
+elif st.session_state.step == "tracking":
+    show_tracking()
+
+elif st.session_state.step == "reset_confirm":
+    show_reset_confirmation()
